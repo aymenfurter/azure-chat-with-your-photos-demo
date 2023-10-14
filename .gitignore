@@ -40,7 +40,6 @@ public
 .vscode
 node_modules-hotfix
 bin/youtube-dl
-data/*.vtt
 .azure
 *_env
 .Python
@@ -83,3 +82,4 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+data/
