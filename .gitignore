@@ -82,4 +82,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-data/
+data/*.png
+data/*.jpg
+data/*.jpeg
