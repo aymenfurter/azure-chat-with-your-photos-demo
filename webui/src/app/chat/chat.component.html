@@ -1,0 +1,70 @@
+<mat-sidenav-container class="sidenav-container">
+    <mat-sidenav-content class="content">
+        <div *ngIf="!messages.length" class="welcome-container">
+            <img src="assets/logo.png" class="logo" />
+            <h2>Hey there! 👋</h2>
+            <p>Welcome! As your Search Assistant, I'm here to help you navigate through the extensive collection of pictures at your disposal. Let's explore the information together and find exactly what you're looking for! 🚀</p>
+            <ul class="sample-queries">
+                <li (click)="startConversation(sampleQuery)" *ngFor="let sampleQuery of sampleQueries">
+                {{ sampleQuery }}
+                </li>
+            </ul>
+      </div>
+      <div class="message-container">
+        <ng-container *ngFor="let message of messages">
+          <div
+            class="message"
+            [ngClass]="{
+              'user-message': message.role === 'user',
+              'assistant-message': message.role === 'assistant'
+            }"
+          >
+            <img *ngIf="message.role === 'assistant'" src="assets/logo.png" class="assistant-logo" />
+            <h4 [ngStyle]="{'white-space': 'pre-wrap'}" [innerHTML]="message.content | linkify"></h4>
+            <div style="display: flex; flex-wrap: wrap;">
+                <img
+                    *ngFor="let picture of message.pictures"
+                    width="380"
+                    height="220"
+                    [src]="picture | safe: 'resourceUrl'"
+                    style="margin-right: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px #0003; border-radius: 13px;"
+                />
+            </div>
+
+              
+
+
+          </div>
+        </ng-container>
+      </div>
+    </mat-sidenav-content>
+    <mat-toolbar class="chatbar" color="background">
+            
+        <form (ngSubmit)="submitMessage()" #messageForm="ngForm">
+            <mat-form-field appearance="fill" class="input-form">
+              <input
+                autofocus
+                class="text-box"
+                matInput
+                [(ngModel)]="userMessage"
+                placeholder="Type a message..."
+                name="userMessage"
+                required
+              />
+            </mat-form-field>
+            <button
+              mat-raised-button
+              color="primary"
+              class="send-button"
+              type="submit"
+              [disabled]="isLoading"
+            >
+              <mat-spinner *ngIf="isLoading" diameter="24"></mat-spinner>
+              <span *ngIf="!isLoading">Send</span>
+            </button>
+          </form>
+         <div class="footprint"><span class="footprint-desktop">This is a demo of <a target="_blank" href="https://github.com/aymenfurter/azure-chat-with-your-photos-demo">azure-chat-with-your-photos-demo</a> </span>&nbsp; (using only publicly available data).</div>
+
+    </mat-toolbar>
+  </mat-sidenav-container>
+  
