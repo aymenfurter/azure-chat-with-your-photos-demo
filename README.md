@@ -20,7 +20,7 @@ To deploy the application, please ensure that you have the following dependencie
 ### CAUTION
 - This repository is still in early development.
 - Your photos are currently stored in a public Azure Blob Storage container. Please do not upload any sensitive data.
-- This repository uses LLaVA which is a research project. Conducting thorough due diligence to determine its suitability for your project.
+- This repository uses LLaVA which is a research project. Conduct thorough due diligence to determine its suitability for your project.
 
 ## Setup procedure
 1. Clone the repository and navigate to the project root
