@@ -91,7 +91,7 @@ namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills
                     break;
                 }
 
-                documentsText += $"\n\nPicture Description: {memory.Metadata.Id}: {memory.Metadata.Text}";
+                documentsText += $"\n\n{memory.Metadata.Text}";
                 remainingToken -= tokenCount;
             }
 

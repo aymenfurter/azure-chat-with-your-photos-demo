@@ -24,7 +24,6 @@
             <div style="display: flex; flex-wrap: wrap;">
                 <img
                     *ngFor="let picture of message.pictures"
-                    width="380"
                     height="220"
                     [src]="picture | safe: 'resourceUrl'"
                     style="margin-right: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px #0003; border-radius: 13px;"
@@ -63,7 +62,7 @@
               <span *ngIf="!isLoading">Send</span>
             </button>
           </form>
-         <div class="footprint"><span class="footprint-desktop">This is a demo of <a target="_blank" href="https://github.com/aymenfurter/azure-chat-with-your-photos-demo">azure-chat-with-your-photos-demo</a> </span>&nbsp; (using only publicly available data).</div>
+         <div class="footprint"><span class="footprint-desktop">This is a demo of <a target="_blank" href="https://github.com/aymenfurter/azure-chat-with-your-photos-demo">azure-chat-with-your-photos-demo</a> </span>.</div>
 
     </mat-toolbar>
   </mat-sidenav-container>

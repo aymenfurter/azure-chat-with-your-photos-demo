@@ -205,15 +205,39 @@ public class ChatSkill
     }
 
  
-       private static List<string> extractLinks(string result, string chatContextText)
+    // FIXME: This method needs cleanup
+    private static List<string> extractLinks(string result, string chatContextText)
     {
         var regex = new Regex(@"\bhttps?://\S+");
-        var matches = regex.Matches(chatContextText);
+        var matches = regex.Matches(result);
         var pictureLinks = new List<string>();
 
         foreach (Match match in matches)
         {
-            pictureLinks.Add(match.Value);
+            var url = match.Value;
+            url = url.Replace(",", "");
+            url = url.Replace(")", "");
+            url = url.Replace(".", "");
+            url = url.Replace("]", "");
+            pictureLinks.Add(url);
+        }
+
+        if (pictureLinks.Count == 0)
+        {
+            var matchesContext = regex.Matches(chatContextText);
+
+            foreach (Match match in matchesContext)
+            {
+                if (pictureLinks.Count < 3) {
+                    var url = match.Value;
+                    url = url.Replace(",", "");
+                    url = url.Replace(")", "");
+                    url = url.Replace(".", "");
+                    url = url.Replace("]", "");
+                    pictureLinks.Add(url);
+                }
+            }
+
         }
 
         return pictureLinks;

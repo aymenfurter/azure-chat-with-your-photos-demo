@@ -85,3 +85,6 @@ venv.bak/
 data/*.png
 data/*.jpg
 data/*.jpeg
+data_completed/*.png
+data_completed/*.jpg
+data_completed/*.jpeg

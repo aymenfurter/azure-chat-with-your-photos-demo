@@ -64,17 +64,15 @@ namespace TeamsBot.Bots
 
             await turnContext.SendActivityAsync(MessageFactory.Text(replyText), cancellationToken);
 
-            if (!string.IsNullOrEmpty(links) && !links.Contains("QH2-TGUlwu4"))
+            if (!string.IsNullOrEmpty(links))
             {
-                links = links.Replace(" ", Environment.NewLine);
-                links = links.Replace("/embed", "/v");
-                var youtubeLinks = links.Split(Environment.NewLine);
+                var pictureLinks = links.Split(Environment.NewLine);
 
                 var card = new HeroCard
                 {
                     Title = "Sources",
-                    Subtitle = "Relevant YouTube Links",
-                    Buttons = youtubeLinks.Select(link => new CardAction(ActionTypes.OpenUrl, link, value: link)).ToList()
+                    Subtitle = "Relevant Links",
+                    Buttons = pictureLinks.Select(link => new CardAction(ActionTypes.OpenUrl, link, value: link)).ToList()
                 };
 
                 var attachment = MessageFactory.Attachment(card.ToAttachment());

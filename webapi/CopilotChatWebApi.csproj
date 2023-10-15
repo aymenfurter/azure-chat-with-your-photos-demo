@@ -38,7 +38,7 @@
   </ItemGroup> 
 
   <ItemGroup>
-    <Content Include="TranscriptCopilot/Skills/SortSkill/Sort/skprompt.txt">
+    <Content Include="PictureCopilot/Skills/SortSkill/Sort/skprompt.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup> 

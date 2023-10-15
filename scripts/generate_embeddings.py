@@ -19,6 +19,8 @@ from azure.search.documents.indexes.models import SearchIndex, SimpleField, Sear
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes.models import *
 import openai
+import shutil
+
 
 STRING_LENGTH = 10
 
@@ -194,8 +196,13 @@ def initialize_search_index(acs_key, acs_instance):
         print("Search index already exists")
 
 
-def create_embeddings(storage_account, ws_endpoint):
-    glob_paths = glob.glob("data/*.jpg")
+def create_embeddings(storage_account, ws_endpoint, limit=5):
+    glob_paths = glob.glob("data/*.jpg")[:limit]
+
+    for glob_path in glob_paths:
+        destination = os.path.join("data_completed", os.path.basename(glob_path))
+        shutil.move(glob_path, destination)
+
     blob_service_client = BlobServiceClient(
         account_url=f"https://{storage_account}.blob.core.windows.net",
         credential=AzureDeveloperCliCredential()
@@ -207,14 +214,17 @@ def create_embeddings(storage_account, ws_endpoint):
 
     embeddings = defaultdict(list)
 
-    for glob_path in glob_paths:
-        print (f"Processing {glob_path}")
+    for dglob_path in glob_paths:
+        glob_path = os.path.join("data_completed", os.path.basename(dglob_path))
+        print (f"Processing.. {glob_path}")
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=glob_path)
         blob_client.upload_blob(open(glob_path, "rb"), overwrite=True)
+        print (f"Generating Image Description.. {glob_path}")
         text = process_image(ws_endpoint, glob_path)
         location = get_location_from_image(glob_path)
         date = get_date_from_image(glob_path)
         content = f"URL: {blob_client.url}\nImage description: {text}\nLocation: {location}\nDate: {date}"
+        print (f"Producing Embedding.. {glob_path}")
         embeddings[glob_path] = {
             "Id": hashlib.md5(glob_path.encode()).hexdigest(),
             "Text": content,
@@ -224,8 +234,9 @@ def create_embeddings(storage_account, ws_endpoint):
             "CreatedAt": date,
             "URL": blob_client.url,
             "Location": location,
-            "Vector": openai.Embedding.create(engine="text-embedding-ada-002", input=content)["data"][0]["embedding"]
+            "Vector": openai.Embedding.create(engine="text-embedding-ada-002", input=text)["data"][0]["embedding"]
         }
+    
     return embeddings
 
 
@@ -236,7 +247,7 @@ def upload_file_to_blob_storage(file_path, storage_account_name):
         blob_client.upload_blob(data)
 
 
-def index(embedding_data, acs_key, acs_instance, batch_size=1000):
+def index(embedding_data, acs_key, acs_instance, batch_size=5):
     auth_credentials = AzureKeyCredential(acs_key)
     search_client = SearchClient(endpoint=f"https://{acs_instance}.search.windows.net/",
                                  index_name="embeddings",
@@ -264,6 +275,8 @@ def report_status(search_client, batch):
 
 
 if __name__ == "__main__":
+    if not os.path.exists("data_completed"):
+        os.makedirs("data_completed")
     storage_account = os.environ.get('AZURE_STORAGE_ACCOUNT')
     ws_endpoint = os.environ.get('WS_TARGET_ENDPOINT')
     acs_key = os.environ.get('ACS_KEY')
@@ -275,5 +288,10 @@ if __name__ == "__main__":
     openai.api_version = "2022-12-01"
 
     initialize_search_index(acs_key, acs_instance)
-    embeddings = create_embeddings(storage_account, ws_endpoint)
-    index(embeddings, acs_key=acs_key, acs_instance=acs_instance)
+    while glob.glob("data/*.jpg"):
+        try:
+            embeddings = create_embeddings(storage_account, ws_endpoint)
+            index(embeddings, acs_key=acs_key, acs_instance=acs_instance)
+        except Exception as e:
+            print(f"WARNING: Error encountered: {e}")
+            continue

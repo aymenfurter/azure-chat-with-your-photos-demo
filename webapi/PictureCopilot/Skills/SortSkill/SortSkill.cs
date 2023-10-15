@@ -28,7 +28,7 @@ namespace SemanticKernel.Service.CopilotChat.Skills.SortSkill
         public async Task<SortType> ProcessUserIntent(string userIntent)
         {
             var context = CreateContext(userIntent);
-            var skillsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "TranscriptCopilot/Skills");
+            var skillsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "PictureCopilot/Skills");
             var skill = this._kernel.ImportSemanticSkillFromDirectory(skillsDirectory, "SortSkill");
 
             var sortString = await this._kernel.RunAsync(skill["Sort"], context);
