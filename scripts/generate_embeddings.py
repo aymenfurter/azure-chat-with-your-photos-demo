@@ -21,7 +21,6 @@ from azure.search.documents.indexes.models import *
 import openai
 import shutil
 
-
 STRING_LENGTH = 10
 
 
@@ -99,59 +98,35 @@ def get_date_from_image(filename):
     except Exception as e:
         return None
 
-
-def random_string(length=STRING_LENGTH):
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for _ in range(length))
-
-
 def encode_image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-
-def establish_websocket(ws_endpoint, fn_index, session_hash):
-    ws = websocket.WebSocket()
-    ws.connect(ws_endpoint)
-    ws.send(json.dumps({"fn_index": fn_index, "session_hash": session_hash}))
-    return ws
-
-
-def process_websocket(ws, fn_index, session_hash, data):
-    response = json.loads(ws.recv())
-    while response["msg"] != "send_data":
-        response = json.loads(ws.recv())
-
-    ws.send(json.dumps({
-        "data": data,
-        "event_data": None,
-        "fn_index": fn_index,
-        "session_hash": session_hash
-    }))
-
-    response = json.loads(ws.recv())
-    while response["msg"] != "process_completed":
-        response = json.loads(ws.recv())
-
-    return response
-
-
-def process_image(ws_endpoint, image_path):
-    session_hash = random_string()
-    ws1 = establish_websocket(ws_endpoint, 9, session_hash)
+def process_image(image_path):
     base64_image = encode_image_to_base64(image_path)
-    response = process_websocket(
-        ws1, 9, session_hash,
-        [None, "Describe the image", f"data:image/jpeg;base64,{base64_image}", "Default"]
+    response = openai.ChatCompletion.create(
+    model="gpt-4-vision-preview",
+    messages=[
+            {
+            "role": "user",
+            "content": [
+                {
+                "type": "text",
+                "text": "Describe the image in as much detail as possible. 200 words or more.",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                    },
+                }
+            ],
+            }
+        ],
+        max_tokens=300,
     )
-    ws1.close()
-    ws2 = establish_websocket(ws_endpoint, 10, session_hash)
-    response = process_websocket(
-        ws2, 10, session_hash,
-        [None, "llava-v1.5-13b-4bit", 0.2, 0.7, 512]
-    )
-    ws2.close()
-    return response["output"]["data"][1][0][1]
+    
+    return response.choices[0].message.content
 
 
 def initialize_search_index(acs_key, acs_instance):
@@ -196,7 +171,7 @@ def initialize_search_index(acs_key, acs_instance):
         print("Search index already exists")
 
 
-def create_embeddings(storage_account, ws_endpoint, limit=5):
+def create_embeddings(storage_account, limit=5):
     glob_paths = glob.glob("data/*.jpg")[:limit]
 
     for glob_path in glob_paths:
@@ -218,9 +193,10 @@ def create_embeddings(storage_account, ws_endpoint, limit=5):
         glob_path = os.path.join("data_completed", os.path.basename(dglob_path))
         print (f"Processing.. {glob_path}")
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=glob_path)
+        print (f"Uploading to Blob Storage.. {glob_path}")
         blob_client.upload_blob(open(glob_path, "rb"), overwrite=True)
         print (f"Generating Image Description.. {glob_path}")
-        text = process_image(ws_endpoint, glob_path)
+        text = process_image(glob_path)
         location = get_location_from_image(glob_path)
         date = get_date_from_image(glob_path)
         content = f"URL: {blob_client.url}\nImage description: {text}\nLocation: {location}\nDate: {date}"
@@ -234,7 +210,7 @@ def create_embeddings(storage_account, ws_endpoint, limit=5):
             "CreatedAt": date,
             "URL": blob_client.url,
             "Location": location,
-            "Vector": openai.Embedding.create(engine="text-embedding-ada-002", input=text)["data"][0]["embedding"]
+            "Vector": openai.Embedding.create(model="text-embedding-ada-002", input=text)["data"][0]["embedding"]
         }
     
     return embeddings
@@ -278,19 +254,23 @@ if __name__ == "__main__":
     if not os.path.exists("data_completed"):
         os.makedirs("data_completed")
     storage_account = os.environ.get('AZURE_STORAGE_ACCOUNT')
-    ws_endpoint = os.environ.get('WS_TARGET_ENDPOINT')
+    gpt4v_key = os.environ.get('OPENAI_KEY')
     acs_key = os.environ.get('ACS_KEY')
     acs_instance = os.environ.get('ACS_INSTANCE')
 
-    openai.api_type = "azure"
-    openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
-    openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
-    openai.api_version = "2022-12-01"
+    if not gpt4v_key:
+        raise ValueError("OPENAI_KEY environment variable is not set. Until GPT-4 Vision is available on Azure, you need to provide an OpenAI API key.")
+
+    openai.api_key = gpt4v_key
+    # openai.api_type = "azure"
+    # openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
+    # openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
+    # openai.api_version = "2022-12-01"
 
     initialize_search_index(acs_key, acs_instance)
     while glob.glob("data/*.jpg"):
         try:
-            embeddings = create_embeddings(storage_account, ws_endpoint)
+            embeddings = create_embeddings(storage_account)
             index(embeddings, acs_key=acs_key, acs_instance=acs_instance)
         except Exception as e:
             print(f"WARNING: Error encountered: {e}")

@@ -217,8 +217,12 @@ public class ChatSkill
             var url = match.Value;
             url = url.Replace(",", "");
             url = url.Replace(")", "");
-            url = url.Replace(".", "");
             url = url.Replace("]", "");
+
+            if (url.EndsWith("."))
+            {
+                url = url.Substring(0, url.Length - 1);
+            }
             pictureLinks.Add(url);
         }
 
@@ -232,8 +236,13 @@ public class ChatSkill
                     var url = match.Value;
                     url = url.Replace(",", "");
                     url = url.Replace(")", "");
-                    url = url.Replace(".", "");
                     url = url.Replace("]", "");
+
+                    if (url.EndsWith("."))
+                    {
+                        url = url.Substring(0, url.Length - 1);
+                    }
+
                     pictureLinks.Add(url);
                 }
             }

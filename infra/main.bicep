@@ -20,22 +20,18 @@ var openAiServiceName = ''
 var openAiSkuName = 'S0' 
 var chatGptDeploymentName = 'gpt-35-turbo'
 var chatGptModelName = 'gpt-35-turbo'
-var chatGptDeploymentCapacity = 100
+var chatGptDeploymentCapacity = 30 
 var embeddingDeploymentName = 'text-embedding-ada-002'
-var embeddingDeploymentCapacity = 100
+var embeddingDeploymentCapacity = 30
 param embeddingModelName string = 'text-embedding-ada-002'
 param openAiResourceGroupName string = ''
 @description('Location for the OpenAI resource group')
-@allowed(['eastus', 'southcentralus', 'uksouth', 'westeurope'])
 @metadata({
   azd: {
     type: 'location'
   }
 })
 param openAiResourceGroupLocation string
-
-@description('WS Target Endpoint (mandatory: Used to generate the image description)')
-param wsTargetEndpoint string
 
 var searchServiceName = ''
 var searchServiceSkuName = 'standard' // Change to your desired SKU
@@ -70,7 +66,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
         model: {
           format: 'OpenAI'
           name: chatGptModelName
-          version: '0301' 
+          version: '0613' 
         }
         sku: {
           name: 'Standard'
@@ -203,7 +199,5 @@ output APP_BACKEND_NAME string = appBackendDeployment.outputs.SERVICE_API_NAME
 output APP_BACKEND_URL string = appBackendDeployment.outputs.SERVICE_API_URI
 output APP_FRONTEND_NAME string = appFrontendDeployment.outputs.SERVICE_WEB_NAME
 output APP_FRONTEND_URL string = appFrontendDeployment.outputs.SERVICE_WEB_URI
-
-output WS_TARGET_ENDPOINT string = wsTargetEndpoint
 
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
