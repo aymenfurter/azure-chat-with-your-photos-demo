@@ -4,7 +4,7 @@
 This example demonstrates how to create a ChatGPT-style application using the Retrieval Augmented Generation (RAG). It leverages Azure's OpenAI Service to access the ChatGPT model (gpt-3.5-turbo) and employs Azure Cognitive Search Vector Search for data indexing and retrieval.
 
 ## Features
-The chatbot can analyze and comprehend the details of your uploaded images. This enables you to interact with the chatbot as if you were conversing with someone who has viewed the same photos. For instance, you could inquire, "Hello, have you seen a picture of a dog with a frisbee in the snow?"
+The chatbot can analyze and comprehend the details of your uploaded images. This enables you to interact with the chatbot as if you were conversing with someone who has viewed the same photos. 
 
 <img style="border-radius: 10px;" src="screenshot.png?raw=true">
 
