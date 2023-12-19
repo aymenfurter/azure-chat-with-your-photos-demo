@@ -105,7 +105,7 @@ def encode_image_to_base64(image_path):
 def process_image(image_path):
     base64_image = encode_image_to_base64(image_path)
     response = openai.ChatCompletion.create(
-    model="gpt-4-vision-preview",
+    engine="gpt-4",
     messages=[
             {
             "role": "user",
@@ -210,7 +210,7 @@ def create_embeddings(storage_account, limit=5):
             "CreatedAt": date,
             "URL": blob_client.url,
             "Location": location,
-            "Vector": openai.Embedding.create(model="text-embedding-ada-002", input=text)["data"][0]["embedding"]
+            "Vector": openai.Embedding.create(engine="text-embedding-ada-002", input=text)["data"][0]["embedding"]
         }
     
     return embeddings
@@ -254,18 +254,13 @@ if __name__ == "__main__":
     if not os.path.exists("data_completed"):
         os.makedirs("data_completed")
     storage_account = os.environ.get('AZURE_STORAGE_ACCOUNT')
-    gpt4v_key = os.environ.get('OPENAI_KEY')
     acs_key = os.environ.get('ACS_KEY')
     acs_instance = os.environ.get('ACS_INSTANCE')
 
-    if not gpt4v_key:
-        raise ValueError("OPENAI_KEY environment variable is not set. Until GPT-4 Vision is available on Azure, you need to provide an OpenAI API key.")
-
-    openai.api_key = gpt4v_key
-    # openai.api_type = "azure"
-    # openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
-    # openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
-    # openai.api_version = "2022-12-01"
+    openai.api_type = "azure"
+    openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
+    openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
+    openai.api_version = "2023-07-01-preview"
 
     initialize_search_index(acs_key, acs_instance)
     while glob.glob("data/*.jpg"):

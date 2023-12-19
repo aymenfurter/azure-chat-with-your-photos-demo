@@ -5,12 +5,9 @@ targetScope = 'subscription'
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
-@minLength(1)
-@description('Primary location for all resources')
-param location string
 
 // Variables
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+var resourceToken = toLower(uniqueString(subscription().id, environmentName))
 var tags = {
   // Add your desired tags here
 }
@@ -18,21 +15,14 @@ var tags = {
 param resourceGroupName string = ''
 var openAiServiceName = ''
 var openAiSkuName = 'S0' 
-var chatGptDeploymentName = 'gpt-35-turbo'
-var chatGptModelName = 'gpt-35-turbo'
-var chatGptDeploymentCapacity = 30 
+var chatGptDeploymentName = 'gpt-4'
+var resourceLocation = 'westus'
+var chatGptModelName = 'gpt-4'
+var chatGptDeploymentCapacity = 10 
 var embeddingDeploymentName = 'text-embedding-ada-002'
 var embeddingDeploymentCapacity = 30
 param embeddingModelName string = 'text-embedding-ada-002'
 param openAiResourceGroupName string = ''
-@description('Location for the OpenAI resource group')
-@metadata({
-  azd: {
-    type: 'location'
-  }
-})
-param openAiResourceGroupLocation string
-
 var searchServiceName = ''
 var searchServiceSkuName = 'standard' // Change to your desired SKU
 
@@ -41,7 +31,7 @@ param storageAccountName string = ''
 var abbrs = loadJsonContent('abbreviations.json')
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: location
+  location: resourceLocation
   tags: tags
 }
 
@@ -55,7 +45,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
   scope:  openAiResourceGroup
   params: {
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
-    location: openAiResourceGroupLocation
+    location: resourceLocation
     tags: tags
     sku: {
       name: openAiSkuName
@@ -66,7 +56,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
         model: {
           format: 'OpenAI'
           name: chatGptModelName
-          version: '0613' 
+          version: 'vision-preview' 
         }
         sku: {
           name: 'Standard'
@@ -92,7 +82,7 @@ module searchService 'core/search/search-services.bicep' = {
   scope: resourceGroup 
   params: {
     name: !empty(searchServiceName) ? searchServiceName : 'gptkb-${resourceToken}'
-    location: location
+    location: resourceLocation
     tags: tags
     authOptions: {
       aadOrApiKey: {
@@ -112,7 +102,7 @@ module storage 'core/storage/storage-account.bicep' = {
   scope: resourceGroup
   params: {
     name: !empty(storageAccountName) ? storageAccountName : 'storgcc${resourceToken}'
-    location: location
+    location: resourceLocation
     tags: tags
     publicNetworkAccess: 'Enabled'
     sku: {
@@ -136,7 +126,7 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
   scope: resourceGroup
   params: {
     name: '${abbrs.appBackend}${resourceToken}'
-    location: location
+    location: resourceLocation
     tags: tags
     sku: {
       name: 'B1'
@@ -150,7 +140,7 @@ module appBackendDeployment './app/api.bicep' = {
   scope: resourceGroup
   params: {
     name: '${abbrs.appBackend}${resourceToken}'
-    location: location
+    location: resourceLocation 
     appServicePlanId: appServicePlan.outputs.id
     allowedOrigins: [
       appFrontendDeployment.outputs.SERVICE_WEB_URI
@@ -172,7 +162,7 @@ module appFrontendDeployment './app/web.bicep' = {
   params: {
     name: '${abbrs.appFrontend}${resourceToken}'
     appServicePlanId: appServicePlan.outputs.id
-    location: location
+    location: resourceLocation
   }
 }
 
