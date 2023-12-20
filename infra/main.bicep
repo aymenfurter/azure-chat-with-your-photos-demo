@@ -16,7 +16,9 @@ param resourceGroupName string = ''
 var openAiServiceName = ''
 var openAiSkuName = 'S0' 
 var chatGptDeploymentName = 'gpt-4'
-var resourceLocation = 'westus'
+@minLength(1)
+@description('Primary location for all resources')
+param location string
 var chatGptModelName = 'gpt-4'
 var chatGptDeploymentCapacity = 10 
 var embeddingDeploymentName = 'text-embedding-ada-002'
@@ -31,7 +33,7 @@ param storageAccountName string = ''
 var abbrs = loadJsonContent('abbreviations.json')
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: resourceLocation
+  location: location
   tags: tags
 }
 
@@ -45,7 +47,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
   scope:  openAiResourceGroup
   params: {
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
-    location: resourceLocation
+    location: location
     tags: tags
     sku: {
       name: openAiSkuName
@@ -58,10 +60,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
           name: chatGptModelName
           version: 'vision-preview' 
         }
-        sku: {
-          name: 'Standard'
-          capacity: chatGptDeploymentCapacity
-        }
+        capacity: chatGptDeploymentCapacity
       }
       {
         name: embeddingDeploymentName
@@ -82,7 +81,7 @@ module searchService 'core/search/search-services.bicep' = {
   scope: resourceGroup 
   params: {
     name: !empty(searchServiceName) ? searchServiceName : 'gptkb-${resourceToken}'
-    location: resourceLocation
+    location: location
     tags: tags
     authOptions: {
       aadOrApiKey: {
@@ -102,7 +101,7 @@ module storage 'core/storage/storage-account.bicep' = {
   scope: resourceGroup
   params: {
     name: !empty(storageAccountName) ? storageAccountName : 'storgcc${resourceToken}'
-    location: resourceLocation
+    location: location
     tags: tags
     publicNetworkAccess: 'Enabled'
     sku: {
@@ -126,7 +125,7 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
   scope: resourceGroup
   params: {
     name: '${abbrs.appBackend}${resourceToken}'
-    location: resourceLocation
+    location: location
     tags: tags
     sku: {
       name: 'B1'
@@ -140,7 +139,7 @@ module appBackendDeployment './app/api.bicep' = {
   scope: resourceGroup
   params: {
     name: '${abbrs.appBackend}${resourceToken}'
-    location: resourceLocation 
+    location: location 
     appServicePlanId: appServicePlan.outputs.id
     allowedOrigins: [
       appFrontendDeployment.outputs.SERVICE_WEB_URI
@@ -162,7 +161,7 @@ module appFrontendDeployment './app/web.bicep' = {
   params: {
     name: '${abbrs.appFrontend}${resourceToken}'
     appServicePlanId: appServicePlan.outputs.id
-    location: resourceLocation
+    location: location
   }
 }
 
@@ -191,3 +190,4 @@ output APP_FRONTEND_NAME string = appFrontendDeployment.outputs.SERVICE_WEB_NAME
 output APP_FRONTEND_URL string = appFrontendDeployment.outputs.SERVICE_WEB_URI
 
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
+output AZURE_STORAGE_ACCOUNT_KEY string = storage.outputs.key1

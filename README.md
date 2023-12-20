@@ -27,7 +27,7 @@ To deploy the application, please ensure that you have the following dependencie
 2. Run `azd auth login`
 3. Put the photos you want to index in the `./data` folder
 4. Run `azd up` 
-5. Make sure to select 'westus' as the region. 
+5. Make sure to select a region with quota available for GPT-4-Vision. (e.g. 'switzerlandnorth' at the of writing) as the region. 
 
 The current indexing process is suboptimal. During my evaluation, the system could only handle an approximate rate of 300 images hourly.
 
@@ -37,5 +37,6 @@ The current indexing process is suboptimal. During my evaluation, the system cou
 - [ ] Bot Framework Support (In progress)
 - [ ] Reduce Hallucinations / Prompt tweaks
 
-## Troubleshooting
+## Troubleshooting / Things to fix 
 - To upload images to the Azure Blob Storage container, review that your user account has the Storage Blob Data Contributor role assigned.
+- Currently, images are directly linked from storage account. Webapp should act as proxy.
