@@ -10,7 +10,7 @@ namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
         public string Id { get; set; } = string.Empty;
 
         [SearchableField(AnalyzerName = LexicalAnalyzerName.Values.StandardLucene)]
-        public string? URL { get; set; } = string.Empty;
+        public string? File { get; set; } = string.Empty;
 
         [SearchableField(AnalyzerName = LexicalAnalyzerName.Values.StandardLucene)]
         public string? Text { get; set; } = string.Empty;

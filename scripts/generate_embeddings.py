@@ -105,7 +105,7 @@ def encode_image_to_base64(image_path):
 def process_image(image_path):
     base64_image = encode_image_to_base64(image_path)
     response = openai.ChatCompletion.create(
-    model="gpt-4-vision-preview",
+    engine="gpt-4",
     messages=[
             {
             "role": "user",
@@ -144,7 +144,7 @@ def initialize_search_index(acs_key, acs_instance):
                 SearchableField(name="AdditionalMetadata", type="Edm.String", analyzer_name="en.microsoft"),
                 SearchableField(name="ExternalSourceName", type="Edm.String", analyzer_name="en.microsoft"),
                 SimpleField(name="CreatedAt", type=SearchFieldDataType.DateTimeOffset, filterable=True, sortable=True),
-                SearchableField(name="URL", type="Edm.String", analyzer_name="en.microsoft"),
+                SearchableField(name="File", type="Edm.String", analyzer_name="en.microsoft"),
                 SearchableField(name="Location", type="Edm.String", analyzer_name="en.microsoft"),
                 SearchField(name="Vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
                             hidden=False, searchable=True, filterable=False, sortable=False, facetable=False,
@@ -170,50 +170,62 @@ def initialize_search_index(acs_key, acs_instance):
     else:
         print("Search index already exists")
 
-
 def create_embeddings(storage_account, limit=5):
+    # Get the paths of the first 'limit' jpg files in the 'data' directory
     glob_paths = glob.glob("data/*.jpg")[:limit]
+    
+    connection_string = os.environ.get('AZURE_STORAGE_ACCOUNT_CONNECTION_STRING')
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
-    for glob_path in glob_paths:
-        destination = os.path.join("data_completed", os.path.basename(glob_path))
-        shutil.move(glob_path, destination)
-
-    blob_service_client = BlobServiceClient(
-        account_url=f"https://{storage_account}.blob.core.windows.net",
-        credential=AzureDeveloperCliCredential()
-    )
     container_name = "images"
 
-    if not blob_service_client.get_container_client("images").exists():
+    if not blob_service_client.get_container_client(container_name).exists():
         blob_service_client.create_container(container_name)
 
+    # Dictionary to store embeddings
     embeddings = defaultdict(list)
 
-    for dglob_path in glob_paths:
-        glob_path = os.path.join("data_completed", os.path.basename(dglob_path))
-        print (f"Processing.. {glob_path}")
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=glob_path)
-        print (f"Uploading to Blob Storage.. {glob_path}")
-        blob_client.upload_blob(open(glob_path, "rb"), overwrite=True)
-        print (f"Generating Image Description.. {glob_path}")
+    # Process each file
+    for glob_path in glob_paths:
+
+        file_name = os.path.basename(glob_path)
+        print(f"Processing.. {file_name}")
+
+        # Create a Blob Client for each file
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_name)
+
+        # Upload the file to Blob Storage
+        print(f"Uploading to Blob Storage.. {file_name}")
+        with open(glob_path, "rb") as file_data:
+            blob_client.upload_blob(file_data, overwrite=True)
+
+        # Generate image description and other metadata
+        print(f"Generating Image Description.. {file_name}")
         text = process_image(glob_path)
         location = get_location_from_image(glob_path)
         date = get_date_from_image(glob_path)
-        content = f"URL: {blob_client.url}\nImage description: {text}\nLocation: {location}\nDate: {date}"
-        print (f"Producing Embedding.. {glob_path}")
-        embeddings[glob_path] = {
-            "Id": hashlib.md5(glob_path.encode()).hexdigest(),
+
+        content = f"File: {file_name}\nImage description: {text}\nLocation: {location}\nDate: {date}"
+        print(f"Producing Embedding.. {file_name}")
+
+        # File is processed, move it to the 'data_completed' directory
+        shutil.move(glob_path, f"data_completed/{os.path.basename(glob_path)}")
+
+        # Store embedding and metadata
+        embeddings[file_name] = {
+            "Id": hashlib.md5(file_name.encode()).hexdigest(),
             "Text": content,
             "Description": "",
             "AdditionalMetadata": "",
             "ExternalSourceName": "Custom",
             "CreatedAt": date,
-            "URL": blob_client.url,
+            "File": file_name,
             "Location": location,
-            "Vector": openai.Embedding.create(model="text-embedding-ada-002", input=text)["data"][0]["embedding"]
+            "Vector": openai.Embedding.create(engine="text-embedding-ada-002", input=text)["data"][0]["embedding"]
         }
-    
+
     return embeddings
+
 
 
 def upload_file_to_blob_storage(file_path, storage_account_name):
@@ -254,18 +266,13 @@ if __name__ == "__main__":
     if not os.path.exists("data_completed"):
         os.makedirs("data_completed")
     storage_account = os.environ.get('AZURE_STORAGE_ACCOUNT')
-    gpt4v_key = os.environ.get('OPENAI_KEY')
     acs_key = os.environ.get('ACS_KEY')
     acs_instance = os.environ.get('ACS_INSTANCE')
 
-    if not gpt4v_key:
-        raise ValueError("OPENAI_KEY environment variable is not set. Until GPT-4 Vision is available on Azure, you need to provide an OpenAI API key.")
-
-    openai.api_key = gpt4v_key
-    # openai.api_type = "azure"
-    # openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
-    # openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
-    # openai.api_version = "2022-12-01"
+    openai.api_type = "azure"
+    openai.api_key = os.environ.get('AZURE_OPENAI_API_KEY')
+    openai.api_base = os.environ.get('AZURE_OPENAI_ENDPOINT')
+    openai.api_version = "2023-07-01-preview"
 
     initialize_search_index(acs_key, acs_instance)
     while glob.glob("data/*.jpg"):

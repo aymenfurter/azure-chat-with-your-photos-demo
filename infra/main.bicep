@@ -5,12 +5,9 @@ targetScope = 'subscription'
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
-@minLength(1)
-@description('Primary location for all resources')
-param location string
 
 // Variables
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+var resourceToken = toLower(uniqueString(subscription().id, environmentName))
 var tags = {
   // Add your desired tags here
 }
@@ -18,21 +15,16 @@ var tags = {
 param resourceGroupName string = ''
 var openAiServiceName = ''
 var openAiSkuName = 'S0' 
-var chatGptDeploymentName = 'gpt-35-turbo'
-var chatGptModelName = 'gpt-35-turbo'
-var chatGptDeploymentCapacity = 30 
+var chatGptDeploymentName = 'gpt-4'
+@minLength(1)
+@description('Primary location for all resources')
+param location string
+var chatGptModelName = 'gpt-4'
+var chatGptDeploymentCapacity = 10 
 var embeddingDeploymentName = 'text-embedding-ada-002'
 var embeddingDeploymentCapacity = 30
 param embeddingModelName string = 'text-embedding-ada-002'
 param openAiResourceGroupName string = ''
-@description('Location for the OpenAI resource group')
-@metadata({
-  azd: {
-    type: 'location'
-  }
-})
-param openAiResourceGroupLocation string
-
 var searchServiceName = ''
 var searchServiceSkuName = 'standard' // Change to your desired SKU
 
@@ -55,7 +47,7 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
   scope:  openAiResourceGroup
   params: {
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
-    location: openAiResourceGroupLocation
+    location: location
     tags: tags
     sku: {
       name: openAiSkuName
@@ -66,12 +58,9 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
         model: {
           format: 'OpenAI'
           name: chatGptModelName
-          version: '0613' 
+          version: 'vision-preview' 
         }
-        sku: {
-          name: 'Standard'
-          capacity: chatGptDeploymentCapacity
-        }
+        capacity: chatGptDeploymentCapacity
       }
       {
         name: embeddingDeploymentName
@@ -125,7 +114,6 @@ module storage 'core/storage/storage-account.bicep' = {
     containers: [
       {
         name: 'images'
-        publicAccess: 'Blob'
       }
     ]
   }
@@ -144,23 +132,64 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
   }
 
 }
+
+module keyvault 'core/security/keyvault.bicep' = {
+  name: 'keyvault-deployment'
+  scope: resourceGroup
+  params: {
+    name: 'kv-${resourceToken}'
+    location: location
+  }
+}
+
+module openAiApiKeySecret 'core/security/keyvault-secret.bicep' = {
+  name: 'openai-api-key-secret'
+  scope: resourceGroup
+  params: {
+    name: 'openai-api-key'
+    keyVaultName: keyvault.outputs.name
+    secretValue: openAi.outputs.primaryKey
+  }
+}
+
+module acsKey 'core/security/keyvault-secret.bicep' = {
+  name: 'acs-key'
+  scope: resourceGroup
+  params: {
+    name: 'acs-key'
+    keyVaultName: keyvault.outputs.name
+    secretValue: searchService.outputs.primaryKey
+  }
+}
+
+module connectionString 'core/security/keyvault-secret.bicep' = {
+  name: 'connection-string'
+  scope: resourceGroup
+  params: {
+    name: 'connection-string'
+    keyVaultName: keyvault.outputs.name
+    secretValue: storage.outputs.connectionString
+  }
+}
+
 // Application Backend Deployment
 module appBackendDeployment './app/api.bicep' = {
   name: 'appbackend-deployment'
   scope: resourceGroup
   params: {
     name: '${abbrs.appBackend}${resourceToken}'
-    location: location
+    location: location 
     appServicePlanId: appServicePlan.outputs.id
     allowedOrigins: [
       appFrontendDeployment.outputs.SERVICE_WEB_URI
     ]
     appSettings: {
+      AZURE_STORAGE_CONNECTION_STRING: '@Microsoft.KeyVault(SecretUri=${connectionString.outputs.secretUri})'
       AZURE_OPENAI_DEPLOYMENT_NAME: chatGptDeploymentName
       AZURE_OPENAI_ENDPOINT: openAi.outputs.endpoint
-      AZURE_OPENAI_API_KEY: openAi.outputs.primaryKey
+      AZURE_OPENAI_API_KEY: '@Microsoft.KeyVault(SecretUri=${openAiApiKeySecret.outputs.secretUri})'
       ACS_INSTANCE: searchService.outputs.name
-      ACS_KEY: searchService.outputs.primaryKey
+      ACS_KEY: '@Microsoft.KeyVault(SecretUri=${acsKey.outputs.secretUri})'
     }
   }
 }
@@ -187,6 +216,16 @@ module frontendSettings './core/host/appservice-appsettings.bicep' = {
   }
 }
 
+// TODO: move to IAM
+module keyvaultAccess './core/security/keyvault-access.bicep' = {
+  name: 'keyvault-access-policy'
+  scope: resourceGroup
+  params: {
+    keyVaultName: keyvault.outputs.name
+    principalId: appBackendDeployment.outputs.SERVICE_API_IDENTITY_PRINCIPAL_ID
+  }
+}
+
 // Data outputs
 output AZURE_OPENAI_DEPLOYMENT_NAME string = chatGptDeploymentName
 output AZURE_OPENAI_ENDPOINT string = openAi.outputs.endpoint
@@ -201,3 +240,4 @@ output APP_FRONTEND_NAME string = appFrontendDeployment.outputs.SERVICE_WEB_NAME
 output APP_FRONTEND_URL string = appFrontendDeployment.outputs.SERVICE_WEB_URI
 
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
+output AZURE_STORAGE_ACCOUNT_CONNECTION_STRING string = storage.outputs.connectionString 

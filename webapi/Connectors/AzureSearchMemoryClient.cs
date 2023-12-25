@@ -60,7 +60,7 @@ namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
             {
                 Vector = vector,
                 Size = 10,
-                Select = { "Text", "Description", "ExternalSourceName", "Id", "URL" }
+                Select = { "Text", "Description", "ExternalSourceName", "Id", "File" }
             };
 
             switch (sortType)

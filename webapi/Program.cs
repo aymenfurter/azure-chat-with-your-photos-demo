@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SemanticKernel.Service.CopilotChat.Extensions;
+using Azure.Storage.Blobs;
 
 namespace SemanticKernel.Service;
 
@@ -34,7 +35,6 @@ public sealed class Program
 
         // Load in configuration settings from appsettings.json, user-secrets, key vaults, etc...
         builder.Host.AddConfiguration();
-
 
         // Add in configuration options and Semantic Kernel services.
         builder.Services
@@ -56,7 +56,11 @@ public sealed class Program
                 options.SerializerSettings.MaxDepth = HttpHelper.BotMessageSerializerSettings.MaxDepth;
             });
 
-        builder.Services
+        builder.Services.
+            AddSingleton<BlobServiceClient>(provider => {
+                string connectionString = Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
+                return new BlobServiceClient(connectionString);
+            })
             .AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>()
             .AddSingleton<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>()
             .AddSingleton<IStorage, MemoryStorage>()

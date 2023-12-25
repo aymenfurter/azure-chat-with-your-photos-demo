@@ -13,6 +13,18 @@ interface Variable {
 export class ChatService {
   constructor() {}
 
+  getHostname(url: string): string {
+    try {
+        const parsedUrl = new URL(url);
+        // Include the port in the return value if it exists
+        return `${parsedUrl.protocol}//${parsedUrl.hostname}${parsedUrl.port ? ':' + parsedUrl.port : ''}`;
+    } catch (e) {
+        console.error('Invalid URL:', e);
+        return '';
+    }
+  }
+
+
   async sendMessage(
     userMessage: string,
     messages: { role: string; content: string; pictures?: string[] }[]
@@ -45,10 +57,13 @@ export class ChatService {
       messages.push({ role: 'user', content: userMessage });
       const data = await response.json();
       const pictureUrls = data.variables.find((variable: Variable) => variable.key === 'link')?.value.split('\n').filter((url: string) => url && !url.includes("QH2-TGUlwu4")) || [];
+        
+      const host = this.getHostname(API_URL);
+      const updatedPictureUrls = pictureUrls.map((url: string) => `${host}${url}`);
 
       // Update the return value to match the new response format
       return {
-        messages: [...messages, { role: 'assistant', content: data.value, pictures: pictureUrls }],
+        messages: [...messages, { role: 'assistant', content: data.value, pictures: updatedPictureUrls }],
         response: data.value,
       };
     } catch (error) {

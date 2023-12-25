@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.19.1" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="0.19.230804.2-preview" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.AI.OpenAI" Version="0.19.230804.2-preview" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearch" Version="0.19.230804.2-preview" /> 

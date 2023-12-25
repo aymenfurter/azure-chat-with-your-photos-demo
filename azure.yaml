@@ -1,4 +1,4 @@
-name: todo-java-mongo-aca
+name: chat-with-your-photos-app 
 services:
   web:
     project: ./webui
