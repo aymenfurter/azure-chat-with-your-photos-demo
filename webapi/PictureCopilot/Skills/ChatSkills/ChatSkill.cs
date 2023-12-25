@@ -190,7 +190,7 @@ public class ChatSkill
         );
         
         List<string> pictureLinks = extractLinks(chatContext.Result, chatContextText);
-        var result = chatContext.Result;
+        var result = replaceLinks(chatContext.Result, pictureLinks);
         chatContext.Variables.Set("link", string.Join("\n", pictureLinks));
         
         chatContext.Log.LogInformation("Prompt: {0}", renderedPrompt);
@@ -204,54 +204,41 @@ public class ChatSkill
         return result;
     }
 
- 
-    // FIXME: This method needs cleanup
-    private static List<string> extractLinks(string result, string chatContextText)
-    {
-        var regex = new Regex(@"\bhttps?://\S+");
-        var matches = regex.Matches(result);
-        var pictureLinks = new List<string>();
+    private static string replaceLinks(string result, List<string> imageFiles) {
+        string updatedResult = result;
+        foreach (string imageFile in imageFiles) {
+            string pattern = $@"(?<!=""|')(?<!<a href[^>]*?){Regex.Escape(imageFile)}(?!=""|')(?!.*?</a>)";
+            string replacement = $@"<a target=""_blank"" href=""/images/{imageFile}"">{imageFile}</a>";
 
-        foreach (Match match in matches)
-        {
-            var url = match.Value;
-            url = url.Replace(",", "");
-            url = url.Replace(")", "");
-            url = url.Replace("]", "");
-
-            if (url.EndsWith("."))
-            {
-                url = url.Substring(0, url.Length - 1);
-            }
-            pictureLinks.Add(url);
+            updatedResult = Regex.Replace(updatedResult, pattern, replacement);
         }
-
-        if (pictureLinks.Count == 0)
-        {
-            var matchesContext = regex.Matches(chatContextText);
-
-            foreach (Match match in matchesContext)
-            {
-                if (pictureLinks.Count < 3) {
-                    var url = match.Value;
-                    url = url.Replace(",", "");
-                    url = url.Replace(")", "");
-                    url = url.Replace("]", "");
-
-                    if (url.EndsWith("."))
-                    {
-                        url = url.Substring(0, url.Length - 1);
-                    }
-
-                    pictureLinks.Add(url);
-                }
-            }
-
-        }
-
-        return pictureLinks;
+        return updatedResult;
     }
 
+    private static List<string> extractLinks(string result, string chatContextText)
+    {
+        var lines = chatContextText.Split("\n");
+        var links = new List<string>();
+        string pattern = @"File:(.+)";
+        foreach (var line in lines)
+        {
+            // print line for debug
+            Match match = Regex.Match(line, pattern);
+            if (match.Success)
+            {
+                var filename = match.Groups[1].Value;
+                filename = filename.Trim();
+                var link = $"/images/{filename}";
+
+                if (result.Contains(filename)) {
+                    links.Add(link);
+                }
+            }
+        }
+
+        return links;
+    }
+ 
 
     private async Task<string> GetUserIntentAsync(SKContext context)
     {
