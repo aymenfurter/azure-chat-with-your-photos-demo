@@ -27,7 +27,7 @@ To deploy the application, please ensure that you have the following dependencie
 2. Run `azd auth login`
 3. Put the photos you want to index in the `./data` folder
 4. Run `azd up` 
-5. Make sure to select a region with quota available for GPT-4-Vision. (e.g. 'switzerlandnorth' at the of writing) as the region. 
+5. Make sure to select a region with quota available for GPT-4-Vision. (e.g. 'switzerlandnorth') as the region. 
 
 The current indexing process is suboptimal. During my evaluation, the system could only handle an approximate rate of 300 images hourly.
 
