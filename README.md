@@ -36,7 +36,3 @@ The current indexing process is suboptimal. During my evaluation, the system cou
 - [ ] Ability to query based on image metadata (e.g. location)
 - [ ] Bot Framework Support (In progress)
 - [ ] Reduce Hallucinations / Prompt tweaks
-
-## Troubleshooting / Things to fix 
-- To upload images to the Azure Blob Storage container, review that your user account has the Storage Blob Data Contributor role assigned.
-- Currently, images are directly linked from storage account. Webapp should act as proxy.
