@@ -8,16 +8,15 @@ using Microsoft.Bot.Schema;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.AI;
 using Microsoft.SemanticKernel.Orchestration;
-using Microsoft.SemanticKernel.SkillDefinition;
 using SemanticKernel.Service.CopilotChat.Controllers;
-using SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+using SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins;
 using SemanticKernel.Service.Models;
 public class ChatService
 {
     private readonly IKernel _chatKernel;
     private readonly Planner _chatPlanner;
 
-    public const string SkillName = "ChatSkill";
+    public const string SkillName = "ChatPlugin";
     public const string FunctionName = "Chat";
 
     public ChatService(IKernel chatKernel, Planner chatPlanner)
@@ -26,7 +25,7 @@ public class ChatService
         _chatPlanner = chatPlanner ?? throw new ArgumentNullException(nameof(chatPlanner));
     }
 
-    public async Task<SKContext> ExecuteChatAsync(ChatRequest chatRequest)
+    public async Task<ChatServiceResponse> ExecuteChatAsync(ChatRequest chatRequest)
     {
         var chatContext = CreateChatContext(chatRequest);
 
@@ -35,13 +34,13 @@ public class ChatService
         {
             throw new Exception("Function to invoke is null.");
         }
-        SKContext chatResult = await ExecuteChatFunctionAsync(_chatKernel, chatContext, functionToInvoke);
-        if (chatResult.ErrorOccurred)
-        {
-            throw new Exception("Error occurred while executing chat function: " + CreateErrorResponse(chatResult));
-        }
+        KernelResult chatResult = await ExecuteChatFunctionAsync(_chatKernel, chatContext, functionToInvoke);
 
-        return chatResult;
+        ChatServiceResponse resp = new ChatServiceResponse();
+        resp.Result = chatResult;
+        resp.ContextVariables = chatContext;
+
+        return resp;
     }
 
     private ContextVariables CreateChatContext(ChatRequest chatRequest)
@@ -58,33 +57,16 @@ public class ChatService
 
     private ISKFunction? GetFunctionToInvoke(IKernel chatKernel)
     {
-        try
-        {
-            return chatKernel.Skills.GetFunction(SkillName, FunctionName);
-        }
-        catch (KernelException ke)
-        {
-            return null;
-        }
+        return chatKernel.Skills.GetFunction(SkillName, FunctionName);
     }
 
-    private async Task<SKContext> ExecuteChatFunctionAsync(IKernel chatKernel, ContextVariables chatContext, ISKFunction functionToInvoke)
+    private async Task<KernelResult> ExecuteChatFunctionAsync(IKernel chatKernel, ContextVariables chatContext, ISKFunction functionToInvoke)
     {
         return await chatKernel.RunAsync(chatContext, functionToInvoke);
     }
 
-    private string CreateErrorResponse(SKContext chatResult)
+    public ChatResponse CreateChatResponse(KernelResult chatResult, ContextVariables chatContext)
     {
-        if (chatResult.LastException is AIException aiException && aiException.Detail is not null)
-        {
-            return string.Concat(aiException.Message, " - Detail: ", aiException.Detail);
-        }
-
-        return chatResult.LastErrorDescription;
-    }
-
-    public ChatResponse CreateChatResponse(SKContext chatResult)
-    {
-        return new ChatResponse { Value = chatResult.Result, Variables = chatResult.Variables.Select(v => new KeyValuePair<string, string>(v.Key, v.Value)) };
+        return new ChatResponse { Value = chatResult.GetValue<string>(), Variables = chatContext.Select(v => new KeyValuePair<string, string>(v.Key, v.Value)) };
     }
 }

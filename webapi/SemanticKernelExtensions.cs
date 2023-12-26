@@ -36,8 +36,7 @@ internal static class SemanticKernelExtensions
 
             IKernel kernel;
             kernel = Kernel.Builder
-            .WithLogger(sp.GetRequiredService<ILogger<IKernel>>())
-            .WithAzureChatCompletionService(Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME")!, Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!, Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")!)
+            .WithAzureOpenAIChatCompletionService(Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME")!, Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!, Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")!)
             .Build();
 
             sp.GetRequiredService<RegisterSkillsWithKernel>()(sp, kernel);
@@ -64,14 +63,7 @@ internal static class SemanticKernelExtensions
         {
             foreach (string subDir in Directory.GetDirectories(options.SemanticSkillsDirectory))
             {
-                try
-                {
-                    kernel.ImportSemanticSkillFromDirectory(options.SemanticSkillsDirectory, Path.GetFileName(subDir)!);
-                }
-                catch (TemplateException e)
-                {
-                    kernel.Log.LogError("Could not load skill from {Directory}: {Message}", subDir, e.Message);
-                }
+                kernel.ImportSemanticSkillFromDirectory(options.SemanticSkillsDirectory, Path.GetFileName(subDir)!);
             }
         }
 

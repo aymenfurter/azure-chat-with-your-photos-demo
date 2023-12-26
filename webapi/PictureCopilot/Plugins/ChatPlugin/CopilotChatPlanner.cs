@@ -1,6 +1,6 @@
 ﻿using Microsoft.SemanticKernel;
 
-namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+namespace SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins;
 
 public class Planner
 {

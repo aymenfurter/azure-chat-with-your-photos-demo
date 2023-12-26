@@ -8,8 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.AI;
 using Microsoft.SemanticKernel.Orchestration;
-using Microsoft.SemanticKernel.SkillDefinition;
-using SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+using SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins;
 using SemanticKernel.Service.Models;
 
 
@@ -36,41 +35,17 @@ namespace SemanticKernel.Service.CopilotChat.Controllers
         {
             logger.LogDebug("Chat request received.");
 
-            SKContext chatResult = null;
-            try
-            {
-                chatResult = await _chatService.ExecuteChatAsync(chatRequest);
-            }
-            catch (KernelException ke)
-            {
-                logger.LogError($"Failed to find {ChatService.SkillName}/{ChatService.FunctionName} on server: {ke}");
-                return NotFound($"Failed to find {ChatService.SkillName}/{ChatService.FunctionName} on server");
-            }
-            catch
-            {
-                if (chatResult == null)
-                {
-                    return BadRequest("Chat error.");
-                }
-                return BadRequest(CreateErrorResponse(chatResult));
-            }
+            ChatServiceResponse chatResult = null;
+            chatResult = await _chatService.ExecuteChatAsync(chatRequest);
+     
 
-            return Ok(CreateChatResponse(chatResult));
+            return Ok(CreateChatResponse(chatResult.Result, chatResult.ContextVariables));
         }
 
-        private string CreateErrorResponse(SKContext chatResult)
-        {
-            if (chatResult.LastException is AIException aiException && aiException.Detail is not null)
-            {
-                return string.Concat(aiException.Message, " - Detail: ", aiException.Detail);
-            }
 
-            return chatResult.LastErrorDescription;
-        }
-
-        private ChatResponse CreateChatResponse(SKContext chatResult)
+        private ChatResponse CreateChatResponse(KernelResult chatResult, ContextVariables vars)
         {
-            return new ChatResponse { Value = chatResult.Result, Variables = chatResult.Variables.Select(v => new KeyValuePair<string, string>(v.Key, v.Value)) };
+            return new ChatResponse { Value = chatResult.GetValue<string>(), Variables = vars.Select(v => new KeyValuePair<string, string>(v.Key, v.Value)) };
         }
     }
 }

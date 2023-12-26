@@ -13,9 +13,8 @@ using Microsoft.Bot.Schema;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.AI;
 using Microsoft.SemanticKernel.Orchestration;
-using Microsoft.SemanticKernel.SkillDefinition;
 using SemanticKernel.Service.CopilotChat.Controllers;
-using SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+using SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins;
 using SemanticKernel.Service.Models;
 
 namespace TeamsBot.Bots
@@ -46,7 +45,7 @@ namespace TeamsBot.Bots
 
             await turnContext.SendActivitiesAsync(new Activity[] { new Activity { Type = ActivityTypes.Typing } }, cancellationToken);
 
-            SKContext chatResult;
+            ChatServiceResponse chatResult;
             try
             {
                 chatResult = await _chatService.ExecuteChatAsync(chatRequest);
@@ -57,7 +56,7 @@ namespace TeamsBot.Bots
                 return;
             }
 
-            ChatResponse reply = _chatService.CreateChatResponse(chatResult);
+            ChatResponse reply = _chatService.CreateChatResponse(chatResult.Result, chatResult.ContextVariables);
             var links = reply.Variables.FirstOrDefault(kvp => kvp.Key == "link").Value;
             var replyText = reply.Value;
             replyText = ConvertLinksToMarkdown(replyText);

@@ -14,7 +14,7 @@ using Azure.Search.Documents;
 using Azure.Search.Documents.Indexes;
 using Azure.Search.Documents.Models;
 using Microsoft.SemanticKernel.Memory;
-using SemanticKernel.Service.CopilotChat.Skills.SortSkill;
+using SemanticKernel.Service.CopilotChat.Plugins.SortPlugin;
 
 namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
 {
@@ -54,11 +54,12 @@ namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
         {
             var client = GetSearchClient(collection);
             var queryEmbeddings = await GenerateEmbeddings(query, _openAIClient);
-            var vector = new SearchQueryVector { KNearestNeighborsCount = 5, Fields = "Vector", Value = queryEmbeddings.ToArray() };
-
             var options = new SearchOptions
             {
-                Vector = vector,
+                VectorSearch = new()
+                {
+                    Queries = { new VectorizedQuery(queryEmbeddings.ToArray()) { KNearestNeighborsCount = 5, Fields = { "Vector" } } }
+                },
                 Size = 10,
                 Select = { "Text", "Description", "ExternalSourceName", "Id", "File" }
             };
@@ -107,7 +108,7 @@ namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
                 if (searchResult.Value.TotalCount <= 10) {
                     await foreach (SearchResult<AzureSearchMemoryRecord>? doc in searchResult.Value.GetResultsAsync())
                     {
-                        yield return new MemoryQueryResult(ToMemoryRecordMetadata(doc.Document), doc.RerankerScore ?? 1, null);
+                        yield return new MemoryQueryResult(ToMemoryRecordMetadata(doc.Document), doc.SemanticSearch.RerankerScore ?? 1, null);
                     }
                 } else {
                     List<SearchResult<AzureSearchMemoryRecord>> allResults = new List<SearchResult<AzureSearchMemoryRecord>>();
@@ -121,7 +122,7 @@ namespace Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector
 
                     foreach (var doc in sortedResults)
                     {
-                        yield return new MemoryQueryResult(ToMemoryRecordMetadata(doc.Document), doc.RerankerScore ?? 1, null);
+                        yield return new MemoryQueryResult(ToMemoryRecordMetadata(doc.Document), doc.SemanticSearch.RerankerScore ?? 1, null);
                     }
                 }
             }

@@ -12,19 +12,18 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearchVector;
 using Microsoft.SemanticKernel.Memory;
 using Microsoft.SemanticKernel.Orchestration;
-using Microsoft.SemanticKernel.SkillDefinition;
 using SemanticKernel.Service.CopilotChat.Options;
-using SemanticKernel.Service.CopilotChat.Skills.SortSkill;
+using SemanticKernel.Service.CopilotChat.Plugins.SortPlugin;
 
-namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills
+namespace SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins
 {
-    public class PictureMemorySkill
+    public class PictureMemoryPlugin
     {
         private readonly PromptsOptions _promptOptions;
         private readonly PictureMemoryOptions _pictureImportOptions;
         private readonly AzureSearchMemoryClient _azureCognitiveSearchMemory;
 
-        public PictureMemorySkill(
+        public PictureMemoryPlugin(
             IOptions<PromptsOptions> promptOptions,
             IOptions<PictureMemoryOptions> pictureImportOptions)
         {
@@ -42,8 +41,8 @@ namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills
         }
 
         [SKFunction, Description("Query picture description in the memory given a user message")]
-        [SKParameter("tokenLimit", "Maximum number of tokens")]
-        public async Task<string> QueryPictureVideosAsync([Description("Query to match.")] string query, SKContext context, IKernel kernel, SortSkill.SortType sortType)
+        //[SKParameter("tokenLimit", "Maximum number of tokens")]
+        public async Task<string> QueryPictureVideosAsync([Description("Query to match.")] string query, SKContext context, IKernel kernel, SortPlugin.SortType sortType)
         {
             int tokenLimit = int.Parse(context.Variables["tokenLimit"], new NumberFormatInfo());
             var remainingToken = tokenLimit;
@@ -57,7 +56,7 @@ namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills
                 : $"Here are relevant Picture snippets and IDs:\n{videosText}";
         }
 
-        private async Task<List<MemoryQueryResult>> GetRelevantMemories(string query, string[] documentCollections, SortSkill.SortType sortType)
+        private async Task<List<MemoryQueryResult>> GetRelevantMemories(string query, string[] documentCollections, SortPlugin.SortType sortType)
         {
             var relevantMemories = new List<MemoryQueryResult>();
 

@@ -9,26 +9,30 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.AI.TextCompletion;
 using Microsoft.SemanticKernel.Orchestration;
 using Microsoft.SemanticKernel.Planning;
-using Microsoft.SemanticKernel.SkillDefinition;
 using Microsoft.SemanticKernel.TemplateEngine;
 using SemanticKernel.Service.CopilotChat.Options;
 using System.Text.RegularExpressions;
 using System.IO;
 using System;
 using Microsoft.ApplicationInsights.AspNetCore.TelemetryInitializers;
-using SemanticKernel.Service.CopilotChat.Skills.SortSkill;
+using SemanticKernel.Service.CopilotChat.Plugins.SortPlugin;
+using ClosedXML;
+using Microsoft.SemanticKernel.TemplateEngine.Basic;
+using Microsoft.SemanticKernel.Connectors.AI.OpenAI;
+using System.Threading;
+using Microsoft.SemanticKernel.AI;
 
-namespace SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+namespace SemanticKernel.Service.CopilotChat.Plugins.ChatPlugins;
 
-public class ChatSkill
+public class ChatPlugin
 {
     private readonly IKernel _kernel;
     private readonly PromptsOptions _promptOptions;
-    private readonly PictureMemorySkill _pictureMemorySkill;
+    private readonly PictureMemoryPlugin _pictureMemorySkill;
     private readonly IKernel _plannerKernel;
 
 
-    public ChatSkill(
+    public ChatPlugin(
         IKernel kernel,
         IOptions<PromptsOptions> promptOptions,
         IOptions<PictureMemoryOptions> documentImportOptions,
@@ -38,15 +42,13 @@ public class ChatSkill
         this._kernel = kernel;
         this._plannerKernel = planner.Kernel;
         this._promptOptions = promptOptions.Value;
-        this._pictureMemorySkill = new PictureMemorySkill(
+        this._pictureMemorySkill = new PictureMemoryPlugin(
             promptOptions,
             documentImportOptions);
     }
 
 
     [SKFunction, Description("Extract user intent")]
-    [SKParameter("chatId", "Chat ID to extract history from")]
-    [SKParameter("audience", "The audience the chat bot is interacting with.")]
     public async Task<string> ExtractUserIntentAsync(SKContext context)
     {
         var tokenLimit = this._promptOptions.CompletionTokenLimit;
@@ -66,20 +68,13 @@ public class ChatSkill
 
         var completionFunction = this._kernel.CreateSemanticFunction(
             this._promptOptions.SystemIntentExtraction,
-            skillName: nameof(ChatSkill),
+            pluginName: nameof(ChatPlugin),
             description: "Complete the prompt.");
 
         var result = await completionFunction.InvokeAsync(
             intentExtractionContext,
-            settings: this.CreateIntentCompletionSettings()
+            requestSettings: this.CreateIntentCompletionSettings()
         );
-
-        if (result.ErrorOccurred)
-        {
-            context.Log.LogError("{0}: {1}", result.LastErrorDescription, result.LastException);
-            context.Fail(result.LastErrorDescription);
-            return string.Empty;
-        }
 
         return $"User intent: {result}";
     }
@@ -106,18 +101,16 @@ public class ChatSkill
         SKContext context)
     {
         var chatContext = context.Clone();
-        chatContext.Variables.Set("History", chatContext["History"] + "\n" + message);
+        var history = context.Variables.ContainsKey("History")
+            ? context.Variables["History"]
+            : string.Empty;
+
+        chatContext.Variables.Set("History", history + "\n" + message);
 
 
         var response = chatContext.Variables.ContainsKey("userCancelledPlan")
             ? "I am sorry the plan did not meet your goals."
             : await this.GetChatResponseAsync(chatContext);
-
-        if (chatContext.ErrorOccurred)
-        {
-            context.Fail(chatContext.LastErrorDescription);
-            return context;
-        }
 
         var prompt = chatContext.Variables.ContainsKey("prompt")
             ? chatContext.Variables["prompt"]
@@ -138,10 +131,6 @@ public class ChatSkill
     private async Task<string> GetChatResponseAsync(SKContext chatContext)
     {
         var userIntent = await this.GetUserIntentAsync(chatContext);
-        if (chatContext.ErrorOccurred)
-        {
-            return string.Empty;
-        }
 
         var remainingToken = this.GetChatContextTokenLimit(userIntent);
 
@@ -150,10 +139,6 @@ public class ChatSkill
 
         var pictureTransscriptContextTokenLimit = (int)(remainingToken * this._promptOptions.DocumentContextWeight);
         var pictureMemories = await this.QueryTransscriptsAsync(chatContext, userIntent, pictureTransscriptContextTokenLimit, _kernel, sortType);
-        if (chatContext.ErrorOccurred)
-        {
-            return string.Empty;
-        }
 
         // Fill in chat history
         var chatContextComponents = new List<string>() { pictureMemories };
@@ -162,10 +147,6 @@ public class ChatSkill
         if (chatContextTextTokenCount > 0)
         {
             var chatHistory = await this.GetChatHistoryAsync(chatContext, chatContextTextTokenCount);
-            if (chatContext.ErrorOccurred)
-            {
-                return string.Empty;
-            }
             chatContextText = $"{chatContextText}\n{chatHistory}";
         }
 
@@ -173,34 +154,25 @@ public class ChatSkill
         chatContext.Variables.Set("UserIntent", userIntent);
         chatContext.Variables.Set("ChatContext", chatContextText);
 
-        var promptRenderer = new PromptTemplateEngine();
-        var renderedPrompt = await promptRenderer.RenderAsync(
-            this._promptOptions.SystemChatPrompt,
-            chatContext);
+        var promptTemplate = (new BasicPromptTemplateFactory()).Create(this._promptOptions.SystemChatPrompt, new PromptTemplateConfig());
+        var renderedPrompt = await promptTemplate.RenderAsync(chatContext);
 
 
         var completionFunction = this._kernel.CreateSemanticFunction(
             renderedPrompt,
-            skillName: nameof(ChatSkill),
+            pluginName: nameof(ChatPlugin),
             description: "Complete the prompt.");
 
-        chatContext = await completionFunction.InvokeAsync(
+        FunctionResult functionResult = await completionFunction.InvokeAsync(
             context: chatContext,
-            settings: this.CreateChatResponseCompletionSettings()
+            requestSettings: this.CreateChatResponseCompletionSettings()
         );
         
-        List<string> pictureLinks = extractLinks(chatContext.Result, chatContextText);
+        string functionResponse =  functionResult.GetValue<string>();
+        List<string> pictureLinks = extractLinks(functionResponse, chatContextText);
         var result = replaceLinks(chatContext.Result, pictureLinks);
         chatContext.Variables.Set("link", string.Join("\n", pictureLinks));
         
-        chatContext.Log.LogInformation("Prompt: {0}", renderedPrompt);
-
-        if (chatContext.ErrorOccurred)
-        {
-            return string.Empty;
-        }
-
-
         return result;
     }
 
@@ -247,18 +219,14 @@ public class ChatSkill
             var contextVariables = new ContextVariables();
 
             SKContext intentContext = context.Clone();
-            intentContext.Variables.Set("History", context["History"]);
+            var history = context.Variables.ContainsKey("History")
+                ? context.Variables["History"]
+                : string.Empty;
+            intentContext.Variables.Set("History", history);
 
             userIntent = await this.ExtractUserIntentAsync(intentContext);
             // Propagate the error
-            if (intentContext.ErrorOccurred)
-            {
-                context.Fail(intentContext.LastErrorDescription);
-            }
         }
-
-        // log user intent
-        context.Log.LogInformation("User intent: {0}", userIntent);
 
         return userIntent;
     }
@@ -266,30 +234,25 @@ public class ChatSkill
 
     private Task<string> GetChatHistoryAsync(SKContext context, int tokenLimit)
     {
-        return this.ExtractChatHistoryAsync(context["History"], tokenLimit);
+        return this.ExtractChatHistoryAsync(context.Variables["History"], tokenLimit);
     }
 
 
 
-    private Task<string> QueryTransscriptsAsync(SKContext context, string userIntent, int tokenLimit, IKernel kernel, SortSkill.SortType sortType)
+    private Task<string> QueryTransscriptsAsync(SKContext context, string userIntent, int tokenLimit, IKernel kernel, SortPlugin.SortType sortType)
     {
         var pictureMemoriesContext = context.Clone();
         pictureMemoriesContext.Variables.Set("tokenLimit", tokenLimit.ToString(new NumberFormatInfo()));        
 
         var pictureMemories = this._pictureMemorySkill.QueryPictureVideosAsync(userIntent, pictureMemoriesContext, kernel, sortType);
 
-        if (pictureMemoriesContext.ErrorOccurred)
-        {
-            context.Fail(pictureMemoriesContext.LastErrorDescription);
-        }
-
         return pictureMemories;
     }
 
  
-    private CompleteRequestSettings CreateChatResponseCompletionSettings()
+    private OpenAIRequestSettings CreateChatResponseCompletionSettings()
     {
-        var completionSettings = new CompleteRequestSettings
+        var completionSettings = new OpenAIRequestSettings
         {
             MaxTokens = this._promptOptions.ResponseTokenLimit,
             Temperature = this._promptOptions.ResponseTemperature,
@@ -302,9 +265,9 @@ public class ChatSkill
     }
 
 
-    private CompleteRequestSettings CreateIntentCompletionSettings()
+    private OpenAIRequestSettings CreateIntentCompletionSettings()
     {
-        var completionSettings = new CompleteRequestSettings
+        var completionSettings = new OpenAIRequestSettings
         {
             MaxTokens = this._promptOptions.ResponseTokenLimit,
             Temperature = this._promptOptions.IntentTemperature,
