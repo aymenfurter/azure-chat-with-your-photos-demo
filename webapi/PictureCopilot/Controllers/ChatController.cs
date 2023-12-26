@@ -36,7 +36,18 @@ namespace SemanticKernel.Service.CopilotChat.Controllers
             logger.LogDebug("Chat request received.");
 
             ChatServiceResponse chatResult = null;
-            chatResult = await _chatService.ExecuteChatAsync(chatRequest);
+            
+            try { 
+                chatResult = await _chatService.ExecuteChatAsync(chatRequest);
+            }
+            catch
+            {
+                if (chatResult == null)
+                {
+                    return BadRequest("Chat error.");
+                }
+                return BadRequest();
+            }
      
 
             return Ok(CreateChatResponse(chatResult.Result, chatResult.ContextVariables));
