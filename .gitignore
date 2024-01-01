@@ -88,3 +88,4 @@ data/*.jpeg
 data_completed/*.png
 data_completed/*.jpg
 data_completed/*.jpeg
+.DS_Store
