@@ -16,11 +16,14 @@ param resourceGroupName string = ''
 var openAiServiceName = ''
 var openAiSkuName = 'S0' 
 var chatGptDeploymentName = 'gpt-4'
+var chatGptDeploymentName32k = 'gpt-4-32k'
 @minLength(1)
 @description('Primary location for all resources')
 param location string
 var chatGptModelName = 'gpt-4'
+var chatGptModelName32k = 'gpt-4-32k'
 var chatGptDeploymentCapacity = 10 
+var chatGptDeployment32kCapacity = 80
 var embeddingDeploymentName = 'text-embedding-ada-002'
 var embeddingDeploymentCapacity = 30
 param embeddingModelName string = 'text-embedding-ada-002'
@@ -53,6 +56,15 @@ module openAi 'core/ai/cognitiveservices.bicep' = {
       name: openAiSkuName
     }
     deployments: [
+      {
+        name: chatGptDeploymentName32k
+        model: {
+          format: 'OpenAI'
+          name: chatGptModelName32k
+          version: '0613' 
+        }
+        capacity: chatGptDeployment32kCapacity
+      }
       {
         name: chatGptDeploymentName
         model: {
@@ -185,7 +197,7 @@ module appBackendDeployment './app/api.bicep' = {
     ]
     appSettings: {
       AZURE_STORAGE_CONNECTION_STRING: '@Microsoft.KeyVault(SecretUri=${connectionString.outputs.secretUri})'
-      AZURE_OPENAI_DEPLOYMENT_NAME: chatGptDeploymentName
+      AZURE_OPENAI_DEPLOYMENT_NAME: chatGptDeploymentName32k
       AZURE_OPENAI_ENDPOINT: openAi.outputs.endpoint
       AZURE_OPENAI_API_KEY: '@Microsoft.KeyVault(SecretUri=${openAiApiKeySecret.outputs.secretUri})'
       ACS_INSTANCE: searchService.outputs.name
@@ -216,7 +228,6 @@ module frontendSettings './core/host/appservice-appsettings.bicep' = {
   }
 }
 
-// TODO: move to IAM
 module keyvaultAccess './core/security/keyvault-access.bicep' = {
   name: 'keyvault-access-policy'
   scope: resourceGroup

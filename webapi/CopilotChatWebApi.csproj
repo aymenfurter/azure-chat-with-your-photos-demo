@@ -43,7 +43,7 @@
   </ItemGroup> 
 
   <ItemGroup>
-    <Content Include="PictureCopilot/Plugins/SortPlugin/Sort/skprompt.txt">
+    <Content Include="Plugins/SortPlugin/Sort/skprompt.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup> 

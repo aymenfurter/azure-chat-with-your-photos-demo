@@ -20,14 +20,13 @@ To deploy the application, please ensure that you have the following dependencie
 ### CAUTION
 - This repository is still in early development.
 - Your photos are currently stored in a public Azure Blob Storage container. Please do not upload any sensitive data.
-- This repository uses LLaVA which is a research project. Conduct thorough due diligence to determine its suitability for your project.
 
 ## Setup procedure
 1. Clone the repository and navigate to the project root
 2. Run `azd auth login`
 3. Put the photos you want to index in the `./data` folder
 4. Run `azd up` 
-5. Make sure to select a region with quota available for GPT-4-Vision. (e.g. 'switzerlandnorth') as the region. 
+5. Make sure to select a region with quota available for both GPT-4-32k & GPT-4-Vision. (e.g. 'switzerlandnorth') as the region. 
 
 The current indexing process is suboptimal. During my evaluation, the system could only handle an approximate rate of 300 images hourly.
 

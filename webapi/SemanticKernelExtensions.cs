@@ -10,27 +10,17 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Memory.AzureCognitiveSearch;
 using Microsoft.SemanticKernel.TemplateEngine;
-using SemanticKernel.Service.CopilotChat.Extensions;
-using SemanticKernel.Service.Options;
+using AzureChatWithPhotos.Extensions;
+using AzureChatWithPhotos.Options;
 
 namespace SemanticKernel.Service;
 
-/// <summary>
-/// Extension methods for registering Semantic Kernel related services.
-/// </summary>
 internal static class SemanticKernelExtensions
 {
-    /// <summary>
-    /// Delegate to register skills with a Semantic Kernel
-    /// </summary>
     public delegate Task RegisterSkillsWithKernel(IServiceProvider sp, IKernel kernel);
 
-    /// <summary>
-    /// Add Semantic Kernel services
-    /// </summary>
     internal static IServiceCollection AddSemanticKernelServices(this IServiceCollection services)
     {
-        // Semantic Kernel
         services.AddScoped<IKernel>(sp =>
         {
 
@@ -43,21 +33,15 @@ internal static class SemanticKernelExtensions
             return kernel;
         });
 
-        // Register skills
         services.AddScoped<RegisterSkillsWithKernel>(sp => RegisterSkillsAsync);
 
         return services;
     }
 
-    /// <summary>
-    /// Register the skills with the kernel.
-    /// </summary>
     private static Task RegisterSkillsAsync(IServiceProvider sp, IKernel kernel)
     {
-        // Copilot chat skills
         kernel.RegisterSkills(sp);
 
-        // Semantic skills
         ServiceOptions options = sp.GetRequiredService<IOptions<ServiceOptions>>().Value;
         if (!string.IsNullOrWhiteSpace(options.SemanticSkillsDirectory))
         {
